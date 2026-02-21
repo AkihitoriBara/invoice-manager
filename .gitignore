@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+bin/
+obj/
+
+# Local settings
+.env
+appsettings.json
+.vs/
+.next/
+out/
+
+# Database files (if you have local ones)
+*.db

@@ -20,6 +20,7 @@
         public string Currency { get; set; } = "$"; // Default to $
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? Deadline { get; set; } // Nullable in case no deadline is set
-
+        public int? UserId { get; set; }
+        public User? User { get; set; }
     }
 }

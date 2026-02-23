@@ -1,29 +1,36 @@
-# 📊 Invoice Manager - Full Stack Dashboard
+# Invoice Management System
 
-A modern, high-performance invoice management system built during my Semester 4 of Computer Science and Engineering. This project focuses on solving real-world data challenges like UTC timestamp synchronization and dynamic financial state management.
+**Developed by [Akihitori](https://github.com/akihitori)** _B.Tech Computer Science & Engineering | JG University_
 
-## 🚀 The Tech Stack
+A full-stack invoice management application built with a focus on security, modern UI, and efficient data handling.
 
-- **Frontend:** Next.js & React with Framer Motion for smooth UI transitions.
-- **Backend:** .NET 8 Web API following RESTful principles.
-- **Database:** PostgreSQL for robust, relational data storage.
-- **Styling:** Tailwind CSS for a sleek, dark-mode professional aesthetic.
+## Tech Stack
 
-## ✨ Key Features
+- **Backend:** C# .NET 8 Web API
+- **Frontend:** Next.js (App Router), Tailwind CSS, Framer Motion
+- **Database:** PostgreSQL
+- **Security:** JWT Authentication with Password Salting & Hashing (HMACSHA512)
 
-- **3-Column Workflow:** Seamless navigation from categories to list views to full entry details.
-- **Smart Trash System:** Soft-delete logic that allows for restoring entries or permanent database wiping.
-- **Dynamic Calculations:** Automatic balance-due updates and status changes (Draft/Paid) based on payment inputs.
-- **Data Integrity:** Explicit UTC handling to ensure database consistency across different server environments.
+## Key Features
 
-## 🛠️ Lessons Learned
+- **Secure Authentication:** Full Register and Login flow with JWT token-based authorization.
+- **Protected Routes:** Dashboard and Invoice data are restricted to authenticated users only.
+- **Dynamic Dashboard:** Three-column layout featuring active, completed, and deleted invoice management.
+- **Interactive UI:** Smooth transitions and modals powered by Framer Motion.
 
-- **Database Migrations:** Transitioning from SQLite to PostgreSQL to handle more complex data types.
-- **UX Design:** Implementing "Auto-focus" logic so the app feels responsive when creating new entries.
-- **Version Control:** Managing a professional Git workflow, including environment security with `.gitignore`.
+## Setup & Installation
 
-## 📈 Roadmap (Future Features)
+1. **Backend:**
+   - Update `appsettings.json` with your PostgreSQL connection string.
+   - Set a secure `Token` in `AppSettings`.
+   - Run `dotnet watch run`.
 
-- [ ] Monthly Revenue & Growth Analytics charts.
-- [ ] PDF Generation for official client invoicing.
-- [ ] Automated email reminders for overdue deadlines.
+2. **Frontend:**
+   - Navigate to `/frontend`.
+   - Run `npm install` and `npm run dev`.
+
+## Security Highlights
+
+- Passwords are never stored in plain text; they are hashed with a unique salt per user.
+- Emails are normalized to lowercase and trimmed to prevent duplicate account issues.
+- API endpoints are protected using `[Authorize]` attributes in .NET.

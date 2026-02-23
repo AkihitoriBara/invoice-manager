@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using invoice_details.Data;
+﻿using invoice_details.Data;
 using invoice_details.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace invoice_details.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize] 
 public class InvoicesController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -19,28 +22,46 @@ public class InvoicesController : ControllerBase
     // NEW: Get all Invoices (for the Dashboard list)
     // This allows http://localhost:3000 to show everyone
     [HttpGet]
+    [Authorize]
     public async Task<ActionResult<IEnumerable<Invoice>>> GetInvoices()
     {
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdString)) return Unauthorized();
+
+        var userId = int.Parse(userIdString);
+
         return await _context.Invoices
-            .OrderByDescending(i => i.Id) // Show newest first
+            .Where(i => i.UserId == userId)
             .ToListAsync();
     }
 
     // NEW: Create a brand new Invoice
     // This will be used by your "Create New" pop-up
     [HttpPost]
+    [Authorize] // 🛡️ Core Rule: Only authenticated users can create invoices
     public async Task<ActionResult<Invoice>> CreateInvoice([FromBody] Invoice invoice)
     {
-        // Fix: Force the creation date to UTC
+        // 1. EXTRACTION: Get the User ID from the JWT token claims
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // 2. GUARD: Ensure the ID exists before proceeding
+        if (string.IsNullOrEmpty(userIdString))
+        {
+            return Unauthorized("User identity could not be verified.");
+        }
+
+        // 3. OWNERSHIP: Assign the invoice to the logged-in user
+        invoice.UserId = int.Parse(userIdString);
+
+        // --- YOUR EXISTING CORE LOGIC (UTC & Formatting) ---
         invoice.CreatedAt = DateTime.UtcNow;
 
-        // Fix: If a deadline was provided, ensure it's treated as UTC
         if (invoice.Deadline.HasValue)
         {
             invoice.Deadline = DateTime.SpecifyKind(invoice.Deadline.Value, DateTimeKind.Utc);
         }
 
-        // Existing logic for invoice numbers, balance, etc.
+        // Invoice numbering logic (Global ID + 1)
         var lastInvoice = await _context.Invoices.OrderByDescending(i => i.Id).FirstOrDefaultAsync();
         int nextIdNumber = (lastInvoice?.Id ?? 0) + 1;
         invoice.InvoiceNumber = $"INV-{nextIdNumber:D3}";
@@ -49,8 +70,9 @@ public class InvoicesController : ControllerBase
         invoice.BalanceDue = invoice.Total;
         invoice.Status = "DRAFT";
 
+        // --- DATABASE OPERATIONS ---
         _context.Invoices.Add(invoice);
-        await _context.SaveChangesAsync(); // This should now work!
+        await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetInvoice), new { id = invoice.Id }, invoice);
     }

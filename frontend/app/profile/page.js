@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function ProfilePage() {
   const [user, setUser] = useState({ username: "", email: "" });
@@ -10,6 +11,8 @@ export default function ProfilePage() {
     oldPassword: "",
     newPassword: "",
   });
+  const [newEmail, setNewEmail] = useState("");
+  const [emailMessage, setEmailMessage] = useState({ text: "", type: "" });
   const [message, setMessage] = useState({ text: "", type: "" });
   const router = useRouter();
 
@@ -35,8 +38,34 @@ export default function ProfilePage() {
     }
   }, []);
 
+  // 🛠️ FIX: Moved handleEmailUpdate OUT of the password function
+  const handleEmailUpdate = async (e) => {
+    e.preventDefault();
+    setEmailMessage({ text: "", type: "" });
+
+    const headers = getAuthHeader();
+    try {
+      const res = await axios.post(
+        "https://localhost:7066/api/Auth/update-email",
+        JSON.stringify(newEmail),
+        {
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+      );
+      setUser({ ...user, email: res.data.email });
+      setEmailMessage({ text: res.data.message, type: "success" });
+      setNewEmail("");
+    } catch (err) {
+      setEmailMessage({
+        text: err.response?.data || "Failed to update email.",
+        type: "error",
+      });
+    }
+  };
+
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
+    setMessage({ text: "", type: "" });
     const headers = getAuthHeader();
     try {
       await axios.post(
@@ -78,21 +107,12 @@ export default function ProfilePage() {
           </p>
         </header>
 
-        {message.text && (
-          <div
-            className={`p-4 rounded-xl text-xs font-black uppercase tracking-widest border ${message.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}
-          >
-            {message.text}
-          </div>
-        )}
-
         {/* PROFILE SECTION */}
-        {/* USER INFORMATION SECTION */}
         <section className="bg-slate-900 border border-slate-800 p-8 rounded-3xl">
           <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">
             User Information
           </h2>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-slate-800/50">
             <div>
               <p className="text-xs text-slate-400 mb-1">Username</p>
               <p className="font-bold text-xl">
@@ -100,12 +120,46 @@ export default function ProfilePage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 mb-1">Email Address</p>
-              {/* This will display the actual email from DB */}
-              <p className="font-bold text-xl text-indigo-300">
+              <p className="text-xs text-slate-400 mb-1">Current Email</p>
+              <p className="font-bold text-xl text-indigo-400">
                 {user.email || "Loading..."}
               </p>
             </div>
+          </div>
+
+          {/* EMAIL UPDATE AREA */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
+              Change Email Address
+            </p>
+            <form onSubmit={handleEmailUpdate} className="flex gap-4">
+              <input
+                type="email"
+                placeholder="Enter new email..."
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 outline-none focus:border-indigo-500 transition-all"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                className="bg-indigo-600 px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg"
+              >
+                Update
+              </button>
+            </form>
+
+            <AnimatePresence>
+              {emailMessage.text && (
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`text-xs font-bold uppercase tracking-widest ${emailMessage.type === "success" ? "text-emerald-400" : "text-rose-500"}`}
+                >
+                  {emailMessage.text}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
         </section>
 
@@ -114,6 +168,15 @@ export default function ProfilePage() {
           <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">
             Security (Change Password)
           </h2>
+
+          {message.text && (
+            <div
+              className={`p-4 rounded-xl text-xs font-black uppercase tracking-widest border mb-6 ${message.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}
+            >
+              {message.text}
+            </div>
+          )}
+
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <input
               type="password"
@@ -147,6 +210,7 @@ export default function ProfilePage() {
           </form>
         </section>
 
+        {/* DANGER ZONE */}
         <section className="bg-rose-500/5 border border-rose-500/10 p-8 rounded-3xl">
           <h2 className="text-[10px] font-black text-rose-500/50 uppercase tracking-widest mb-6">
             Danger Zone

@@ -38,7 +38,7 @@ public class InvoicesController : ControllerBase
     // NEW: Create a brand new Invoice
     // This will be used by your "Create New" pop-up
     [HttpPost]
-    [Authorize] // 🛡️ Core Rule: Only authenticated users can create invoices
+    [Authorize] 
     public async Task<ActionResult<Invoice>> CreateInvoice([FromBody] Invoice invoice)
     {
         // 1. EXTRACTION: Get the User ID from the JWT token claims
@@ -91,26 +91,30 @@ public class InvoicesController : ControllerBase
 
     // 2. Add Payment: POST /api/invoices/:id/payments
     [HttpPost("{id}/payments")]
-    public async Task<IActionResult> AddPayment(int id, [FromBody] Payment payment)
+    [Authorize]
+    public async Task<IActionResult> AddPayment(int id, [FromBody] PaymentDto paymentDto)
     {
-        var invoice = await _context.Invoices.FindAsync(id);
+        // 1. Get invoice and its history
+        var invoice = await _context.Invoices
+            .Include(i => i.Payments)
+            .FirstOrDefaultAsync(i => i.Id == id);
+
         if (invoice == null) return NotFound();
 
-        // Business Rules from your assignment
-        if (payment.Amount <= 0 || payment.Amount > invoice.BalanceDue)
-            return BadRequest("Invalid payment amount or exceeds balance due.");
+        // 2. Perform the math
+        invoice.AmountPaid += paymentDto.Amount;
+        invoice.BalanceDue = invoice.Total - invoice.AmountPaid;
 
-        // Update Invoice Totals
-        invoice.AmountPaid += payment.Amount;
-        invoice.BalanceDue -= payment.Amount;
+        invoice.Status = invoice.BalanceDue <= 0 ? "PAID" : "DRAFT";
+        var newHistoryEntry = new Payment
+        {
+            InvoiceId = id,
+            Amount = paymentDto.Amount,
+            // Explicitly set as UTC to avoid PostgreSQL "Kind" errors
+            PaymentDate = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc)
+        };
 
-        // Rule: If balanceDue = 0 -> status = PAID
-        if (invoice.BalanceDue <= 0) invoice.Status = "PAID";
-
-        payment.InvoiceId = id;
-        payment.PaymentDate = DateTime.UtcNow;
-
-        _context.Payments.Add(payment);
+        _context.Payments.Add(newHistoryEntry);
         await _context.SaveChangesAsync();
 
         return Ok(invoice);
@@ -219,10 +223,41 @@ public class InvoicesController : ControllerBase
 
         foreach (var inv in completed)
         {
-            inv.IsDeleted = true; // CHANGED to Capital 'I'
+            inv.IsDeleted = true; 
         }
 
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("stats")]
+    [Authorize]
+    public async Task<ActionResult> GetDashboardStats()
+    {
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdString)) return Unauthorized();
+        var userId = int.Parse(userIdString);
+        var stats = await _context.Invoices
+            .Where(i => i.UserId == userId && !i.IsDeleted)
+            .GroupBy(i => 1)
+            .Select(g => new
+            {
+                TotalRevenue = g.Sum(i => i.Total),
+                TotalPaid = g.Sum(i => i.AmountPaid),
+                PendingBalance = g.Sum(i => i.BalanceDue),
+                InvoiceCount = g.Count()
+            })
+            .FirstOrDefaultAsync();
+        return Ok(stats ?? new
+        {
+            TotalRevenue = 0m,
+            TotalPaid = 0m,
+            PendingBalance = 0m,
+            InvoiceCount = 0
+        });
+    }
+    public class PaymentDto
+    {
+        public decimal Amount { get; set; }
     }
 }

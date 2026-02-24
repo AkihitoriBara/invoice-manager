@@ -22,5 +22,18 @@
         public DateTime? Deadline { get; set; } // Nullable in case no deadline is set
         public int? UserId { get; set; }
         public User? User { get; set; }
+        public string? Description { get; set; } // '?' makes it optional (nullable)
+        public string ContactType { get; set; } = "Email"; // "Email" or "Phone"
+        public string ContactValue { get; set; } = string.Empty;
+    }
+    public class CreateInvoiceDto
+    {
+        public string CustomerName { get; set; } = string.Empty;
+        public decimal Total { get; set; }
+        public string Currency { get; set; } = "$";
+        public DateTime? Deadline { get; set; }
+        public string? Description { get; set; } // Optional
+        public string ContactType { get; set; } = "Email";
+        public string ContactValue { get; set; } = string.Empty;
     }
 }

@@ -119,7 +119,6 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<ActionResult> GetMyProfile()
     {
-        // 🔍 Try to find the ID using multiple common claim names
         var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier) // Standard URL
                         ?? User.FindFirstValue("sub")                    // Standard JWT 'Subject'
                         ?? User.FindFirstValue("id")                     // Custom 'id'
@@ -127,7 +126,6 @@ public class AuthController : ControllerBase
 
         if (string.IsNullOrEmpty(userIdString))
         {
-            // 🛠️ DEBUG: If it's still failing, this will print all available claims to your VS Console
             var allClaims = string.Join(", ", User.Claims.Select(c => $"{c.Type}:{c.Value}"));
             Console.WriteLine($"DEBUG: No ID found. Available claims are: {allClaims}");
 
@@ -178,11 +176,33 @@ public class AuthController : ControllerBase
         return Ok("Password changed successfully.");
     }
 
-    // Add this DTO class at the bottom of your file or in a Models folder
-    public class ChangePasswordDto
+    [HttpPost("update-email")]
+    [Authorize]
+    public async Task<ActionResult> UpdateEmail([FromBody] string newEmail)
     {
-        public string OldPassword { get; set; } = string.Empty;
-        public string NewPassword { get; set; } = string.Empty;
+        // 1. Get current User ID from token
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdString)) return Unauthorized();
+        var userId = int.Parse(userIdString);
+
+        // 2. Normalize and check if email is already taken
+        var normalizedEmail = newEmail.ToLower().Trim();
+        var existingUser = await _context.Users
+            .AnyAsync(u => u.Email == normalizedEmail && u.Id != userId);
+
+        if (existingUser)
+        {
+            return Conflict("This email address is already registered to another account.");
+        }
+
+        // 3. Update the user
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        user.Email = normalizedEmail;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Email updated successfully!", email = normalizedEmail });
     }
 }
 
@@ -197,4 +217,9 @@ public class LoginDto
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+public class ChangePasswordDto
+{
+    public string OldPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }
